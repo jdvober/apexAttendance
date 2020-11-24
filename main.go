@@ -156,28 +156,35 @@ func main() {
 		// Look into Viper for future projects?
 		TACCookie := os.Getenv("TAC_COOKIE")
 
-		request, err := http.NewRequest("POST", "https://tac.sparcc.org/TAC/Attendance/SaveAttendance", bytes.NewBuffer(postFile))
-		request.Header.Set("Host", "tac.sparcc.org")
-		request.Header.Add("User-Agent", "Mozilla/5.0 (X11; Linux x86_64; rv:83.0) Gecko/20100101 Firefox/83.0")
-		request.Header.Add("Accept", "*/*")
-		request.Header.Add("Accept-Language", "en-US,en;q=0.5")
-		request.Header.Add("Accept-Encoding", "gzip, deflate, br")
-		request.Header.Add("Content-Type", "application/json;charset=UTF-8")
-		request.Header.Add("X-Requested-With", "XMLHttpRequest")
-		request.Header.Add("Content-Length", "295321")
-		request.Header.Add("Origin", "https://tac.sparcc.org")
-		request.Header.Add("DNT", "1")
-		request.Header.Add("Connection", "keep-alive")
-		request.Header.Add("Referer", "https://tac.sparcc.org/TAC/Attendance/IndexList")
-		request.Header.Add("Cookie", TACCookie)
+		// Check for copy/paster error.  When copying from Firefox, it includes the "Cookie: " part of the cookie, and we want just the value!
+		if strings.HasPrefix(TACCookie, "TACDistrict") {
 
-		fmt.Printf("Attempting POST for %s :: Mod %s", days[i], mod[1])
+			request, err := http.NewRequest("POST", "https://tac.sparcc.org/TAC/Attendance/SaveAttendance", bytes.NewBuffer(postFile))
+			request.Header.Set("Host", "tac.sparcc.org")
+			request.Header.Add("User-Agent", "Mozilla/5.0 (X11; Linux x86_64; rv:83.0) Gecko/20100101 Firefox/83.0")
+			request.Header.Add("Accept", "*/*")
+			request.Header.Add("Accept-Language", "en-US,en;q=0.5")
+			request.Header.Add("Accept-Encoding", "gzip, deflate, br")
+			request.Header.Add("Content-Type", "application/json;charset=UTF-8")
+			request.Header.Add("X-Requested-With", "XMLHttpRequest")
+			request.Header.Add("Content-Length", "295321")
+			request.Header.Add("Origin", "https://tac.sparcc.org")
+			request.Header.Add("DNT", "1")
+			request.Header.Add("Connection", "keep-alive")
+			request.Header.Add("Referer", "https://tac.sparcc.org/TAC/Attendance/IndexList")
+			request.Header.Add("Cookie", TACCookie)
 
-		resp, err := client2.Do(request)
-		if err != nil {
-			log.Fatalln(err)
+			fmt.Printf("Attempting POST for %s :: Mod %s", days[i], mod[1])
+
+			resp, err := client2.Do(request)
+			if err != nil {
+				log.Fatalln(err)
+			}
+
+			fmt.Printf(" << %s\n", resp.Status)
+		} else {
+			fmt.Println("Check your copy/paste for the value of TAC_COOKIE in the config.env file")
+			break
 		}
-
-		fmt.Printf(" << %s\n", resp.Status)
 	}
 }
