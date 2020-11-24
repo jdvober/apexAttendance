@@ -10,3 +10,5 @@ token.json
 *.env
 ./config.env
 config.env
+./*.txt
+*.txt
