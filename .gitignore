@@ -6,4 +6,7 @@ request.json
 credentials.json
 ./token.json
 token.json
-
+./*.env
+*.env
+./config.env
+config.env
