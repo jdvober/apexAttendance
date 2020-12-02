@@ -10,3 +10,7 @@ token.json
 config.env
 ./*.txt
 *.txt
+./txt/*.*
+./postTemplates/*.*
+./mainbakup
+mainbackup
