@@ -75,7 +75,7 @@ func main() {
 
 	// Get the total hours each student worked last week
 	fmt.Println("Getting totalMins")
-	totalMins := ssVals.Get(client, SpreadsheetIDAttendance, "All Classes!O2:O")
+	totalMins := ssVals.Get(client, SpreadsheetIDAttendance, "All Classes!D2:D")
 
 	attendanceSheetData := [][][]interface{}{studentIDs, attendanceVals, totalMins}
 
@@ -131,11 +131,11 @@ func makeFile(client *http.Client, d int, days []string, data []string, mod []st
 	r := regexp.MustCompile(`[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]`)
 	data[0] = r.ReplaceAllString(data[0], days[d])
 
-	fmt.Printf("totalMins:\n%v\n", totalMins)
-	tempAttendanceVals := calcAttendance(client, totalMins)
-	for _, attendanceVal := range tempAttendanceVals {
-		fmt.Printf("Test attendance slice: %v\n", attendanceVal)
-	}
+	/* fmt.Printf("totalMins:\n%v\n", totalMins) */
+	attendanceVals := calcAttendance(client, totalMins)
+	/* for _, attendanceVal := range attendanceVals {
+	 *     fmt.Printf("Test attendance slice: %v\n", attendanceVal)
+	 * } */
 
 	// ReplaceAll attendance data based on Absent or Present
 	for i, requestSection := range data {
@@ -147,7 +147,7 @@ func makeFile(client *http.Client, d int, days []string, data []string, mod []st
 
 			if strings.Contains(requestSection, studentID[0].(string)) {
 				/* attendanceStatus := attendanceVals[j][d].(string) */
-				attendanceStatus := tempAttendanceVals[j][d]
+				attendanceStatus := attendanceVals[j][d]
 				/* if i == 97 { */
 				/* fmt.Printf("Matched Student ID %s => Attendance: %s\n", studentID, attendanceStatus) */
 				/* fmt.Printf("Before:\n") */
@@ -259,7 +259,7 @@ func postToSunguard(day string, mod []string) {
 
 func calcAttendance(client *http.Client, totalMins [][]interface{}) [][]string {
 	// get attendance AllClasses!O2:O
-	fmt.Println("Calculating attendance")
+	fmt.Printf("\nCalculating attendance\n")
 
 	// If course is AP Physics or Physics, set absent value to N/a
 	// Divide number of hours from Column O by number of days fron config.env
@@ -281,7 +281,7 @@ func calcAttendance(client *http.Client, totalMins [][]interface{}) [][]string {
 	// Calculate how many days they were present
 	for t := range totalMins {
 
-		fmt.Printf("totalMins[%v] = %v\n", t, totalMins[t])
+		/* fmt.Printf("totalMins[%v] = %v\n", t, totalMins[t]) */
 		numDaysPresent := 0
 
 		for _, cutoff := range cutoffs {
