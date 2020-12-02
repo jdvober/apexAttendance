@@ -24,6 +24,12 @@ func init() {
 	}
 }
 
+/* // SpreadsheetIDRoster comes from the config file
+ * var SpreadsheetIDRoster string = os.Getenv("SSID_ROSTER")
+ *
+ * // SpreadsheetIDAttendance comes from the config file
+ * var SpreadsheetIDAttendance string = os.Getenv("SSID_ATTENDANCE") */
+
 func main() {
 	// Add goroutines for speed later!
 
@@ -60,10 +66,18 @@ func main() {
 	client := auth.Authorize()
 
 	// Get the student IDs from the Class Roster 2.0 Spreadsheet Sunguard
+	fmt.Println("Getting studentIDs")
 	studentIDs := ssVals.Get(client, SpreadsheetIDRoster, "Master!I2:I")
 
 	// Get attendance data
+	fmt.Println("Getting attendanceVals")
 	attendanceVals := ssVals.Get(client, SpreadsheetIDAttendance, "All Classes!E2:I")
+
+	// Get the total hours each student worked last week
+	fmt.Println("Getting totalMins")
+	totalMins := ssVals.Get(client, SpreadsheetIDAttendance, "All Classes!O2:O")
+
+	attendanceSheetData := [][][]interface{}{studentIDs, attendanceVals, totalMins}
 
 	// Get filenames of each file in ./postTemplates.  Should be named mod03.json etc
 	files, err := ioutil.ReadDir("./postTemplates")
@@ -95,7 +109,7 @@ func main() {
 			mod := strings.SplitAfter(m, ":\"")
 
 			//
-			makeFile(d, days, data, mod, studentIDs, attendanceVals)
+			makeFile(client, d, days, data, mod, attendanceSheetData, SpreadsheetIDAttendance)
 
 			// Post to sunguard if necessary
 			switch os.Getenv("POST_TO_SUNGUARD") {
@@ -108,10 +122,20 @@ func main() {
 	}
 }
 
-func makeFile(d int, days []string, data []string, mod []string, studentIDs [][]interface{}, attendanceVals [][]interface{}) {
+func makeFile(client *http.Client, d int, days []string, data []string, mod []string, attendanceSheetData [][][]interface{}, SpreadsheetIDAttendance string) {
+	studentIDs := attendanceSheetData[0]
+	/* attendanceVals := attendanceSheetData[1] */
+	totalMins := attendanceSheetData[2]
+
 	// Regex replace the date
 	r := regexp.MustCompile(`[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]`)
 	data[0] = r.ReplaceAllString(data[0], days[d])
+
+	fmt.Printf("totalMins:\n%v\n", totalMins)
+	tempAttendanceVals := calcAttendance(client, totalMins)
+	for _, attendanceVal := range tempAttendanceVals {
+		fmt.Printf("Test attendance slice: %v\n", attendanceVal)
+	}
 
 	// ReplaceAll attendance data based on Absent or Present
 	for i, requestSection := range data {
@@ -120,8 +144,10 @@ func makeFile(d int, days []string, data []string, mod []string, studentIDs [][]
 			// Check for blank values of StudentID from Class Roster
 			/* if len(studentID[0].(string)) > 0 { */
 			/* fmt.Printf("studentID[0].(string): %s\n\n", studentID[0].(string)) */
+
 			if strings.Contains(requestSection, studentID[0].(string)) {
-				attendanceStatus := attendanceVals[j][d].(string)
+				/* attendanceStatus := attendanceVals[j][d].(string) */
+				attendanceStatus := tempAttendanceVals[j][d]
 				/* if i == 97 { */
 				/* fmt.Printf("Matched Student ID %s => Attendance: %s\n", studentID, attendanceStatus) */
 				/* fmt.Printf("Before:\n") */
@@ -231,9 +257,9 @@ func postToSunguard(day string, mod []string) {
 	}
 }
 
-func calcNumDaysPresent(client *http.Client, SpreadsheetIDAttendance string) {
+func calcAttendance(client *http.Client, totalMins [][]interface{}) [][]string {
 	// get attendance AllClasses!O2:O
-	totalHours := ssVals.Get(client, SpreadsheetIDAttendance, "All Classes!O2:O")
+	fmt.Println("Calculating attendance")
 
 	// If course is AP Physics or Physics, set absent value to N/a
 	// Divide number of hours from Column O by number of days fron config.env
@@ -248,19 +274,37 @@ func calcNumDaysPresent(client *http.Client, SpreadsheetIDAttendance string) {
 		100+                   5
 	*/
 
-	var cutoffs []float32 = []float32{20, 40, 60, 80, 100}
-	for _, totalHour := range totalHours {
+	var cutoffs []float64 = []float64{20, 40, 60, 80, 100}
+	/* var attendance [][]string */
+	attendance := make([][]string, len(totalMins), len(totalMins))
 
+	// Calculate how many days they were present
+	for t := range totalMins {
+
+		fmt.Printf("totalMins[%v] = %v\n", t, totalMins[t])
 		numDaysPresent := 0
 
 		for _, cutoff := range cutoffs {
-			if totalHour[0].(float32) < cutoff {
-				/* numDaysPresent = a */
-				break
-			} else {
-				numDaysPresent++
+			// Convert interface {} string to a float to be compared for hours
+			if s, err := strconv.ParseFloat(totalMins[t][0].(string), 32); err == nil {
+				if s < cutoff {
+					/* numDaysPresent = a */
+					break
+				} else {
+					numDaysPresent++
+				}
 			}
 		}
-		fmt.Printf("Number of total hours:%f\nNumber of days to mark absent:%d\n", totalHour, numDaysPresent)
+		/* fmt.Printf("Number of total hours:%f\nNumber of days to mark present:%d\n", totalMin, numDaysPresent) */
+
+		// Fill in the first days of the array with present, as many days as calculated
+		for i := 0; i < numDaysPresent; i++ {
+			attendance[t] = append(attendance[t], "Present")
+		}
+		// Fill in remainder of days as absent
+		for i := numDaysPresent - 1; i < 5; i++ {
+			attendance[t] = append(attendance[t], "Absent")
+		}
 	}
+	return attendance
 }
