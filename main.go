@@ -192,7 +192,7 @@ func makeFile(client *http.Client, d int, days []string, data []string, mod []st
 		log.Println(err)
 		return
 	}
-	fmt.Printf("Created file ./%s\n", filename)
+	fmt.Printf("\nCreated file ./%s\n", filename)
 
 	l, err := f.WriteString(dataFinal)
 	if err != nil {
@@ -259,7 +259,7 @@ func postToSunguard(day string, mod []string) {
 
 func calcAttendance(client *http.Client, totalMins [][]interface{}) [][]string {
 	// get attendance AllClasses!O2:O
-	fmt.Printf("\nCalculating attendance\n")
+	/* fmt.Printf("\nCalculating attendance\n") */
 
 	// If course is AP Physics or Physics, set absent value to N/a
 	// Divide number of hours from Column O by number of days fron config.env
