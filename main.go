@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	auth "github.com/jdvober/goGoogleAuth"
-	ssVals "github.com/jdvober/goSheets/values"
+	"github.com/jdvober/gauth"
+	"github.com/jdvober/gsheets"
 	"github.com/joho/godotenv"
 )
 
@@ -63,19 +63,19 @@ func main() {
 	SpreadsheetIDAttendance := os.Getenv("SSID_ATTENDANCE")
 
 	// Get Google Client
-	client := auth.Authorize()
+	client := gauth.Authorize()
 
 	// Get the student IDs from the Class Roster 2.0 Spreadsheet Sunguard
 	fmt.Println("Getting studentIDs")
-	studentIDs := ssVals.Get(client, SpreadsheetIDRoster, "Master!I2:I")
+	studentIDs := gsheets.GetValues(client, SpreadsheetIDRoster, "Master!I2:I")
 
 	// Get attendance data
 	fmt.Println("Getting attendanceVals")
-	attendanceVals := ssVals.Get(client, SpreadsheetIDAttendance, "All Classes!E2:I")
+	attendanceVals := gsheets.GetValues(client, SpreadsheetIDAttendance, "All Classes!E2:I")
 
 	// Get the total hours each student worked last week
 	fmt.Println("Getting totalMins")
-	totalMins := ssVals.Get(client, SpreadsheetIDAttendance, "All Classes!D2:D")
+	totalMins := gsheets.GetValues(client, SpreadsheetIDAttendance, "All Classes!D2:D")
 
 	attendanceSheetData := [][][]interface{}{studentIDs, attendanceVals, totalMins}
 
