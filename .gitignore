@@ -11,6 +11,7 @@ config.env
 ./*.txt
 *.txt
 ./txt/*.*
+./txt/*
 ./postTemplates/*.*
 ./postTemplates/*
 ./mainbakup

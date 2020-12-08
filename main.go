@@ -34,13 +34,10 @@ func main() {
 	// Add goroutines for speed later!
 
 	nDays, err := strconv.Atoi(os.Getenv("NUM_OF_DAYS"))
-	if err != nil {
-		fmt.Println(err)
-	}
+	ifErr(err)
+
 	nPeriods, err := strconv.Atoi(os.Getenv("NUM_OF_PERIODS"))
-	if err != nil {
-		fmt.Println(err)
-	}
+	ifErr(err)
 	/* mon := os.Getenv("MON")
 	 * tue := os.Getenv("TUE")
 	 * wed := os.Getenv("WED")
@@ -81,9 +78,7 @@ func main() {
 
 	// Get filenames of each file in ./postTemplates.  Should be named mod03.json etc
 	files, err := ioutil.ReadDir("./postTemplates")
-	if err != nil {
-		log.Fatal(err)
-	}
+	ifErr(err)
 	var openList []string
 	for _, file := range files {
 		openList = append(openList, file.Name())
@@ -187,11 +182,13 @@ func makeFile(client *http.Client, d int, days []string, data []string, mod []st
 
 	var filename string = days[d] + "_Mod_" + mod[1] + ".txt"
 
-	f, err := os.Create("./txt/" + filename)
-	if err != nil {
-		log.Println(err)
-		return
+	if _, err := os.Stat("./txt"); os.IsNotExist(err) {
+		fmt.Println("./txt does not exist. Mkdir will create ./txt")
 	}
+	dir, err := os.Mkdir("./txt/")
+	ifErr(err)
+	f, err := os.Create("./txt/" + filename)
+	ifErr(err)
 	fmt.Printf("\nCreated file ./%s\n", filename)
 
 	l, err := f.WriteString(dataFinal)
@@ -202,10 +199,7 @@ func makeFile(client *http.Client, d int, days []string, data []string, mod []st
 		return
 	}
 	err = f.Close()
-	if err != nil {
-		log.Println(err)
-		return
-	}
+	irErr(err)
 }
 
 func postToSunguard(day string, mod []string) {
@@ -307,4 +301,10 @@ func calcAttendance(client *http.Client, totalMins [][]interface{}) [][]string {
 		}
 	}
 	return attendance
+}
+
+func ifErr(err) {
+	if err != nil {
+		fmt.Println(err)
+	}
 }
