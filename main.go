@@ -34,10 +34,14 @@ func main() {
 	// Add goroutines for speed later!
 
 	nDays, err := strconv.Atoi(os.Getenv("NUM_OF_DAYS"))
-	ifErr(err)
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	nPeriods, err := strconv.Atoi(os.Getenv("NUM_OF_PERIODS"))
-	ifErr(err)
+	if err != nil {
+		fmt.Println(err)
+	}
 	/* mon := os.Getenv("MON")
 	 * tue := os.Getenv("TUE")
 	 * wed := os.Getenv("WED")
@@ -78,7 +82,9 @@ func main() {
 
 	// Get filenames of each file in ./postTemplates.  Should be named mod03.json etc
 	files, err := ioutil.ReadDir("./postTemplates")
-	ifErr(err)
+	if err != nil {
+		fmt.Println(err)
+	}
 	var openList []string
 	for _, file := range files {
 		openList = append(openList, file.Name())
@@ -148,6 +154,7 @@ func makeFile(client *http.Client, d int, days []string, data []string, mod []st
 				/* fmt.Printf("Before:\n") */
 				/* fmt.Println(data[i]) */
 				/* } */
+				// log.Printf("%s -- Before:%s  ", studentID, data[i])
 
 				// Replace their attendance
 				switch attendanceStatus {
@@ -168,6 +175,7 @@ func makeFile(client *http.Client, d int, days []string, data []string, mod []st
 					data[i] = strings.ReplaceAll(data[i], "\"Absent\":true", "\"Absent\":false")
 					data[i] = strings.ReplaceAll(data[i], "\"Present\":false", "\"Present\":true")
 				}
+				// log.Printf("  After:%s\n\n", data[i])
 				/* if i == 97 { */
 				/* fmt.Printf("\n\nAfter:\n") */
 				/* fmt.Println(data[i]) */
@@ -184,11 +192,12 @@ func makeFile(client *http.Client, d int, days []string, data []string, mod []st
 
 	if _, err := os.Stat("./txt"); os.IsNotExist(err) {
 		fmt.Println("./txt does not exist. Mkdir will create ./txt")
+		os.Mkdir("./txt/", 0777)
 	}
-	dir, err := os.Mkdir("./txt/")
-	ifErr(err)
 	f, err := os.Create("./txt/" + filename)
-	ifErr(err)
+	if err != nil {
+		fmt.Println(err)
+	}
 	fmt.Printf("\nCreated file ./%s\n", filename)
 
 	l, err := f.WriteString(dataFinal)
@@ -199,7 +208,9 @@ func makeFile(client *http.Client, d int, days []string, data []string, mod []st
 		return
 	}
 	err = f.Close()
-	irErr(err)
+	if err != nil {
+		fmt.Println(err)
+	}
 }
 
 func postToSunguard(day string, mod []string) {
@@ -301,10 +312,4 @@ func calcAttendance(client *http.Client, totalMins [][]interface{}) [][]string {
 		}
 	}
 	return attendance
-}
-
-func ifErr(err) {
-	if err != nil {
-		fmt.Println(err)
-	}
 }
