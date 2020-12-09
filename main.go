@@ -198,7 +198,7 @@ func makeFile(client *http.Client, d int, days []string, data []string, mod []st
 	if err != nil {
 		fmt.Println(err)
 	}
-	fmt.Printf("\nCreated file ./%s\n", filename)
+	fmt.Printf("\nCreated file ./txt/%s\n", filename)
 
 	l, err := f.WriteString(dataFinal)
 	if err != nil {
