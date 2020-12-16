@@ -30,35 +30,50 @@ func init() {
  * // SpreadsheetIDAttendance comes from the config file
  * var SpreadsheetIDAttendance string = os.Getenv("SSID_ATTENDANCE") */
 
+type makeFileArgs struct {
+	client                  *http.Client
+	d                       int
+	days                    []string
+	studentTemplate         string
+	courseTemplate          string
+	mod                     string
+	googleSheetsData        [][][]interface{}
+	spreadsheetIDAttendance string
+	course                  string
+}
+
 func main() {
 	// Add goroutines for speed later!
+
+	st, err := ioutil.ReadFile("./studentTemplate/student-template.json")
+	if err != nil {
+		fmt.Println(err)
+	}
+	StudentTemplate := string(st)
 
 	nDays, err := strconv.Atoi(os.Getenv("NUM_OF_DAYS"))
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	nPeriods, err := strconv.Atoi(os.Getenv("NUM_OF_PERIODS"))
-	if err != nil {
-		fmt.Println(err)
-	}
-	/* mon := os.Getenv("MON")
-	 * tue := os.Getenv("TUE")
-	 * wed := os.Getenv("WED")
-	 * thu := os.Getenv("THU")
-	 * fri := os.Getenv("FRI") */
 	var allDays []string = []string{os.Getenv("MON"), os.Getenv("TUE"), os.Getenv("WED"), os.Getenv("THU"), os.Getenv("FRI")}
 	var days []string = make([]string, nDays)
 	for d := 0; d < nDays; d++ {
 		days[d] = allDays[d]
 	}
 
-	// Get a list of all Mods
-	var allPeriods []string = []string{os.Getenv("PERIOD1"), os.Getenv("PERIOD2"), os.Getenv("PERIOD3"), os.Getenv("PERIOD4"), os.Getenv("PERIOD5"), os.Getenv("PERIOD6"), os.Getenv("PERIOD7"), os.Getenv("PERIOD8"), os.Getenv("PERIOD9")}
-	var periods []string = make([]string, nPeriods)
-	for p := 0; p < nPeriods; p++ {
-		periods[p] = allPeriods[p]
-	}
+	// Get a list of all courses by CourseID
+	var allCourseIDs []string = []string{os.Getenv("COURSEID1"), os.Getenv("COURSEID2"), os.Getenv("COURSEID3"), os.Getenv("COURSEID4"), os.Getenv("COURSEID5"), os.Getenv("COURSEID6"), os.Getenv("COURSEID7"), os.Getenv("COURSEID8"), os.Getenv("COURSEID9"), os.Getenv("COURSEID10")}
+
+	// Get a list of all courses by CourseID
+	var allShouldPost []string = []string{os.Getenv("POST_COURSE_1"), os.Getenv("POST_COURSE_2"), os.Getenv("POST_COURSE_3"), os.Getenv("POST_COURSE_4"), os.Getenv("POST_COURSE_5"), os.Getenv("POST_COURSE_6"), os.Getenv("POST_COURSE_7"), os.Getenv("POST_COURSE_8"), os.Getenv("POST_COURSE_9"), os.Getenv("POST_COURSE_10")}
+
+	// var periods []string = make([]string, nPeriods)
+	// var shouldPost []string = make([]string, nPeriods)
+	// for p := 0; p < nPeriods; p++ {
+	// 	periods[p] = allCourseIDs[p]
+	// 	shouldPost[p] = allShouldPost[p]
+	// }
 
 	SpreadsheetIDRoster := os.Getenv("SSID_ROSTER")
 	SpreadsheetIDAttendance := os.Getenv("SSID_ATTENDANCE")
@@ -70,18 +85,34 @@ func main() {
 	fmt.Println("Getting studentIDs")
 	studentIDs := gsheets.GetValues(client, SpreadsheetIDRoster, "Master!I2:I")
 
+	// Get the student's courses from the Class Roster 2.0 Spreadsheet Sunguard
+	fmt.Println("Getting courses")
+	courses := gsheets.GetValues(client, SpreadsheetIDRoster, "Master!T2:T")
+
 	// Get attendance data
 	fmt.Println("Getting attendanceVals")
 	attendanceVals := gsheets.GetValues(client, SpreadsheetIDAttendance, "All Classes!E2:I")
 
-	// Get the total hours each student worked last week
+	// Get the total minutes each student worked last week
 	fmt.Println("Getting totalMins")
 	totalMins := gsheets.GetValues(client, SpreadsheetIDAttendance, "All Classes!D2:D")
 
-	attendanceSheetData := [][][]interface{}{studentIDs, attendanceVals, totalMins}
+	// Get the full name of the students
+	fmt.Println("Getting Last, First Middle")
+	lastCommaFirstMiddles := gsheets.GetValues(client, SpreadsheetIDRoster, "Master!U2:U")
 
-	// Get filenames of each file in ./postTemplates.  Should be named mod03.json etc
-	files, err := ioutil.ReadDir("./postTemplates")
+	// Get the mod of the students
+	fmt.Println("Getting Mods")
+	mods := gsheets.GetValues(client, SpreadsheetIDRoster, "Master!F2:F")
+
+	// Get the grades of the students
+	fmt.Println("Getting Grade Levels")
+	gradeLevels := gsheets.GetValues(client, SpreadsheetIDRoster, "Master!E2:E")
+
+	googleSheetsData := [][][]interface{}{studentIDs, courses, attendanceVals, totalMins, lastCommaFirstMiddles, mods, gradeLevels}
+
+	// Get filenames of each file in ./courseTemplates.  Should be named COURSEID-template.json etc
+	files, err := ioutil.ReadDir("./courseTemplates")
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -90,136 +121,188 @@ func main() {
 		openList = append(openList, file.Name())
 	}
 	fmt.Printf("Opening files %s\n", openList)
-	for _, f := range files {
-		// Loop over each day
-		for d := 0; d < nDays; d++ {
-			// Open the template request as a byte array
-			src, err := ioutil.ReadFile("./postTemplates/" + f.Name())
-			if err != nil {
-				log.Printf("Error reading file ./postTemplates/%s.\n", f.Name())
-				return
-			}
+	for f := range files {
 
-			// Seperate original request into the data for each student
-			data := strings.SplitAfterN(string(src), "\"Alerts\":{\"rowspan\":1}}},", -1)
-			/* fmt.Println("Length of data: ", len(data)) */
+		// Skips courses that are not on APEX
+		if allShouldPost[f] == "true" {
+			// Loop over each day
+			for d := 0; d < nDays; d++ {
+				// Open the template request as a byte array
+				ct, err := ioutil.ReadFile("./courseTemplates/" + allCourseIDs[f] + ".json")
+				if err != nil {
+					fmt.Println(err)
+				}
+				courseTemplate := string(ct)
 
-			// Get the mod number
-			r := regexp.MustCompile(`"AttendancePeriods":"[0-9][0-9]`)
-			m := r.FindString(data[0])
-			mod := strings.SplitAfter(m, ":\"")
+				// Get the mod number
+				// r := regexp.MustCompile(`"AttendancePeriods":"[0-9][0-9]`)
+				r := regexp.MustCompile(`"AttendancePeriods":"[0-9]{2}`)
+				m := r.FindString(courseTemplate)
+				mod := strings.SplitAfter(m, ":\"")
 
-			//
-			makeFile(client, d, days, data, mod, attendanceSheetData, SpreadsheetIDAttendance)
+				args := makeFileArgs{
+					client:                  client,
+					d:                       d,
+					days:                    days,
+					studentTemplate:         StudentTemplate,
+					courseTemplate:          courseTemplate,
+					mod:                     mod[1],
+					googleSheetsData:        googleSheetsData,
+					spreadsheetIDAttendance: SpreadsheetIDAttendance,
+					course:                  allCourseIDs[f],
+				}
 
-			// Post to sunguard if necessary
-			switch os.Getenv("POST_TO_SUNGUARD") {
-			case "true", "True", "TRUE":
-				postToSunguard(days[d], mod)
-			case "false", "False", "FALSE":
-				fmt.Println("Not posting to Sunguard")
+				makeFile(args)
+
+				// Post to sunguard if necessary
+				switch os.Getenv("POST_TO_SUNGUARD") {
+				case "true", "True", "TRUE":
+					postToSunguard(days[d], mod, args.course)
+				case "false", "False", "FALSE":
+					fmt.Printf("Not posting to Sunguard.\n\n\n")
+				}
 			}
 		}
 	}
 }
 
-func makeFile(client *http.Client, d int, days []string, data []string, mod []string, attendanceSheetData [][][]interface{}, SpreadsheetIDAttendance string) {
-	studentIDs := attendanceSheetData[0]
-	/* attendanceVals := attendanceSheetData[1] */
-	totalMins := attendanceSheetData[2]
+func makeFile(args makeFileArgs) {
+	studentIDs := args.googleSheetsData[0]
+	courses := args.googleSheetsData[1]
+	totalMins := args.googleSheetsData[3]
+	attendanceVals := calcAttendance(args.client, totalMins)
+	lastCommaFirstMiddles := args.googleSheetsData[4]
+	gradeLevels := args.googleSheetsData[6]
+	// mods := args.googleSheetsData[5]
+	p := 0
+	q := 1
 
-	// Regex replace the date
-	r := regexp.MustCompile(`[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]`)
-	data[0] = r.ReplaceAllString(data[0], days[d])
+	allStudents := []string{}
 
-	/* fmt.Printf("totalMins:\n%v\n", totalMins) */
-	attendanceVals := calcAttendance(client, totalMins)
-	/* for _, attendanceVal := range attendanceVals {
-	 *     fmt.Printf("Test attendance slice: %v\n", attendanceVal)
-	 * } */
+	// Make string for each student
+	updatedStudentTemplate := args.studentTemplate
+	r := regexp.MustCompile(`"SectionKey":[0-9]{5}`)
+	sk := r.FindString(args.courseTemplate)
+	sectionKey := strings.SplitAfter(sk, ":")
+	// fmt.Printf("sectionKey=%s\n", sectionKey[1])
 
-	// ReplaceAll attendance data based on Absent or Present
-	for i, requestSection := range data {
-		// Check to see if that section contains the student ID
-		for j, studentID := range studentIDs {
-			// Check for blank values of StudentID from Class Roster
-			/* if len(studentID[0].(string)) > 0 { */
-			/* fmt.Printf("studentID[0].(string): %s\n\n", studentID[0].(string)) */
+	for j, studentID := range studentIDs {
+		// if student is in course based on matching Course from ss to course on list
+		// This is to only add students that are actually in the course we are generating a file for, and not students from other classes
+		if courses[j][0].(string) == args.course {
+			// Fill in information to studentData
+			// fmt.Printf("Courses and mods match: Course=%s and Mod=%s\n", args.course, args.mod)
 
-			if strings.Contains(requestSection, studentID[0].(string)) {
-				/* attendanceStatus := attendanceVals[j][d].(string) */
-				attendanceStatus := attendanceVals[j][d]
-				/* if i == 97 { */
-				/* fmt.Printf("Matched Student ID %s => Attendance: %s\n", studentID, attendanceStatus) */
-				/* fmt.Printf("Before:\n") */
-				/* fmt.Println(data[i]) */
-				/* } */
-				// log.Printf("%s -- Before:%s  ", studentID, data[i])
+			// Replace Section Key
+			r := regexp.MustCompile(`[\$]SECTIONKEY[\$]`)
+			studentData := r.ReplaceAllString(updatedStudentTemplate, sectionKey[1])
 
-				// Replace their attendance
-				switch attendanceStatus {
-				case "Absent":
-					// Do absent stuff
-					// if i == 97 {
-					/* fmt.Println("(If) Absent:false --> Absent:true") */
-					/* fmt.Println("(If) Present:true --> Present:false") */
-					// }
-					data[i] = strings.ReplaceAll(data[i], "\"Absent\":false", "\"Absent\":true")
-					data[i] = strings.ReplaceAll(data[i], "\"Present\":true", "\"Present\":false")
-				case "Present":
-					// Do present stuff
-					// if i == 97 {
-					/* fmt.Println("(If) Absent:true --> Absent:false") */
-					/* fmt.Println("(If) Present:false --> Present:true") */
-					// }
-					data[i] = strings.ReplaceAll(data[i], "\"Absent\":true", "\"Absent\":false")
-					data[i] = strings.ReplaceAll(data[i], "\"Present\":false", "\"Present\":true")
-				}
-				// log.Printf("  After:%s\n\n", data[i])
-				/* if i == 97 { */
-				/* fmt.Printf("\n\nAfter:\n") */
-				/* fmt.Println(data[i]) */
-				/* } */
+			// Replace Student Id
+			r = regexp.MustCompile(`[\$]STUDENTID[\$]`)
+			studentData = r.ReplaceAllString(studentData, studentID[0].(string))
+
+			// Replace Full Name
+			lastCommaFirstMiddle := lastCommaFirstMiddles[j][0].(string)
+			r = regexp.MustCompile(`[\$]LASTCOMMAFIRSTMIDDLE[\$]`)
+			studentData = r.ReplaceAllString(studentData, lastCommaFirstMiddle)
+
+			// Replace Course
+			r = regexp.MustCompile(`[\$]COURSE[\$]`)
+			studentData = r.ReplaceAllString(studentData, args.course)
+
+			// Replace Grade
+			r = regexp.MustCompile(`[\$]GRADELEVEL[\$]`)
+			studentData = r.ReplaceAllString(studentData, gradeLevels[j][0].(string))
+
+			// Replace Grade
+			r = regexp.MustCompile(`[\$]GRADELEVEL[\$]`)
+			studentData = r.ReplaceAllString(studentData, gradeLevels[j][0].(string))
+
+			// Replace P
+			r = regexp.MustCompile(`[\$]P[\$]`)
+			studentData = r.ReplaceAllString(studentData, strconv.Itoa(p))
+
+			// Replace Q
+			r = regexp.MustCompile(`[\$]Q[\$]`)
+			studentData = r.ReplaceAllString(studentData, strconv.Itoa(q))
+
+			// Replace Student Name For Sort
+			// Example: Vober, Joseph Daniel
+			studentNameForSort := lastCommaFirstMiddle
+			studentNameForSort = strings.ReplaceAll(studentNameForSort, ",", "#") // --> "Vober# Joseph Daniel"
+			studentNameForSort = strings.ReplaceAll(studentNameForSort, " ", "+") // --> "Vober#+Joseph+Daniel"
+			studentNameForSort = strings.ToUpper(studentNameForSort)              // --> "VOBER#+JOSEPH+DANIEL"
+			r = regexp.MustCompile(`[\$]STUDENTNAMEFORSORT[\$]`)
+			studentData = r.ReplaceAllString(studentData, studentNameForSort)
+
+			// Replace Attendance based on return of CalcAttendance() (which is stored in attendanceVals)
+			var absentBool string = "false"
+			var presentBool string = "true"
+			if attendanceVals[args.d][0] == "Absent" {
+				absentBool = "true"
+				presentBool = "false"
 			}
-			/* } */
+			r = regexp.MustCompile(`[\$]ABSENTBOOL[\$]`)
+			studentData = r.ReplaceAllString(studentData, absentBool)
+			r = regexp.MustCompile(`[\$]PRESENTBOOL[\$]`)
+			studentData = r.ReplaceAllString(studentData, presentBool)
+
+			// fmt.Printf("allStudents: %s\nstudentData: %s\n", allStudents, studentData)
+			allStudents = append(allStudents, studentData)
+			p++
+			q++
+
+		} else {
+			// fmt.Printf("Courses are not the same!\ncourses[j][0]: %s\nargs.course: %s\n", courses[j][0], args.course)
 		}
 	}
-	// Rejoin all elements to a single string
-	dataFinal := strings.Join(data, "")
-	/* fmt.Printf("\n\n\ndataFinal:\n\n%s\n\n", dataFinal) */
+	// Replace $STUDENTS$ with all of the student information
 
-	var filename string = days[d] + "_Mod_" + mod[1] + ".txt"
+	allStudentsFinal := strings.Join(allStudents, ",")
+	// fmt.Printf("allStudentsFinal: %s\n", allStudentsFinal)
+	r = regexp.MustCompile(`[\$]STUDENTS[\$]`)
+	dataFinal := r.ReplaceAllString(args.courseTemplate, allStudentsFinal)
+	r = regexp.MustCompile(`[\$]DATE[\$]`)
+	dataFinal = r.ReplaceAllString(dataFinal, args.days[args.d])
+	//
+	//
+	//
+	//
+	//
+	//
 
-	if _, err := os.Stat("./txt"); os.IsNotExist(err) {
-		fmt.Println("./txt does not exist. Mkdir will create ./txt")
-		os.Mkdir("./txt/", 0777)
+	var filename string = args.days[args.d] + "_" + args.course + ".txt"
+
+	if _, err := os.Stat("./txt/" + args.course + "/" + args.days[args.d]); os.IsNotExist(err) {
+		fmt.Println("./txt/" + args.course + "/" + args.days[args.d] + " does not exist. MkdirAll will create ./txt/" + args.course + "/" + args.days[args.d] + "/")
+		os.MkdirAll("./txt/"+args.course+"/"+args.days[args.d], 0777)
 	}
-	f, err := os.Create("./txt/" + filename)
+	file, err := os.Create("./txt/" + args.course + "/" + args.days[args.d] + "/" + filename)
 	if err != nil {
 		fmt.Println(err)
 	}
-	fmt.Printf("\nCreated file ./txt/%s\n", filename)
+	fmt.Printf("Created file ./txt/%s/%s/%s\n", args.course, args.days[args.d], filename)
 
-	l, err := f.WriteString(dataFinal)
+	l, err := file.WriteString(dataFinal)
 	if err != nil {
 		fmt.Printf("Problem writing %v bytes", l)
 		log.Println(err)
-		f.Close()
+		file.Close()
 		return
 	}
-	err = f.Close()
+	err = file.Close()
 	if err != nil {
 		fmt.Println(err)
 	}
 }
 
-func postToSunguard(day string, mod []string) {
+func postToSunguard(day string, mod []string, course string) {
 	/* Post all days to Sunguard */
 
-	var filename string = day + "_Mod_" + mod[1] + ".txt"
-	postFile, err := ioutil.ReadFile("./txt/" + filename)
+	var filename string = day + "_" + course + ".txt"
+	postFile, err := ioutil.ReadFile("./txt/" + course + "/" + day + "/" + filename)
 	if err != nil {
-		log.Printf("Error reading file ./txt/%s when attempting to post to Sunguard.\n", filename)
+		log.Printf("Error reading file ./txt/%s/%s/%s when attempting to post to Sunguard.\n", course, day, filename)
 		return
 	}
 	timeout := time.Duration(20 * time.Second)
@@ -300,7 +383,7 @@ func calcAttendance(client *http.Client, totalMins [][]interface{}) [][]string {
 				}
 			}
 		}
-		/* fmt.Printf("Number of total hours:%f\nNumber of days to mark present:%d\n", totalMin, numDaysPresent) */
+		/* fmt.Printf("Number of total hours:%file\nNumber of days to mark present:%d\n", totalMin, numDaysPresent) */
 
 		// Fill in the first days of the array with present, as many days as calculated
 		for i := 0; i < numDaysPresent; i++ {
@@ -311,5 +394,9 @@ func calcAttendance(client *http.Client, totalMins [][]interface{}) [][]string {
 			attendance[t] = append(attendance[t], "Absent")
 		}
 	}
+	// Returns a 2D array of ex:
+	// [
+	//	["Absent", "Absent", "Absent", "Absent", "Absent"], // Student 1 M T W R F
+	// ]
 	return attendance
 }

@@ -1,5 +1,3 @@
-./request.json
-request.json
 ./credentials.json
 credentials.json
 ./token.json
@@ -16,3 +14,5 @@ config.env
 ./postTemplates/*
 ./mainbakup
 mainbackup
+/master_examples
+/postTemplates copy
