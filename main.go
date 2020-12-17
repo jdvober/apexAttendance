@@ -24,12 +24,6 @@ func init() {
 	}
 }
 
-/* // SpreadsheetIDRoster comes from the config file
- * var SpreadsheetIDRoster string = os.Getenv("SSID_ROSTER")
- *
- * // SpreadsheetIDAttendance comes from the config file
- * var SpreadsheetIDAttendance string = os.Getenv("SSID_ATTENDANCE") */
-
 type makeFileArgs struct {
 	client                  *http.Client
 	d                       int
@@ -45,12 +39,14 @@ type makeFileArgs struct {
 func main() {
 	// Add goroutines for speed later!
 
+	// Load the template for a student that will later be copied and find/replaced.
 	st, err := ioutil.ReadFile("./studentTemplate/student-template.json")
 	if err != nil {
 		fmt.Println(err)
 	}
 	StudentTemplate := string(st)
 
+	// Assign environment vars from file
 	nDays, err := strconv.Atoi(os.Getenv("NUM_OF_DAYS"))
 	if err != nil {
 		fmt.Println(err)
@@ -68,17 +64,10 @@ func main() {
 	// Get a list of all courses by CourseID
 	var allShouldPost []string = []string{os.Getenv("POST_COURSE_1"), os.Getenv("POST_COURSE_2"), os.Getenv("POST_COURSE_3"), os.Getenv("POST_COURSE_4"), os.Getenv("POST_COURSE_5"), os.Getenv("POST_COURSE_6"), os.Getenv("POST_COURSE_7"), os.Getenv("POST_COURSE_8"), os.Getenv("POST_COURSE_9"), os.Getenv("POST_COURSE_10")}
 
-	// var periods []string = make([]string, nPeriods)
-	// var shouldPost []string = make([]string, nPeriods)
-	// for p := 0; p < nPeriods; p++ {
-	// 	periods[p] = allCourseIDs[p]
-	// 	shouldPost[p] = allShouldPost[p]
-	// }
-
 	SpreadsheetIDRoster := os.Getenv("SSID_ROSTER")
 	SpreadsheetIDAttendance := os.Getenv("SSID_ATTENDANCE")
 
-	// Get Google Client
+	// Get Google Client for Oauth for Google Sheets
 	client := gauth.Authorize()
 
 	// Get the student IDs from the Class Roster 2.0 Spreadsheet Sunguard
@@ -135,7 +124,6 @@ func main() {
 				courseTemplate := string(ct)
 
 				// Get the mod number
-				// r := regexp.MustCompile(`"AttendancePeriods":"[0-9][0-9]`)
 				r := regexp.MustCompile(`"AttendancePeriods":"[0-9]{2}`)
 				m := r.FindString(courseTemplate)
 				mod := strings.SplitAfter(m, ":\"")
@@ -173,7 +161,6 @@ func makeFile(args makeFileArgs) {
 	attendanceVals := calcAttendance(args.client, totalMins)
 	lastCommaFirstMiddles := args.googleSheetsData[4]
 	gradeLevels := args.googleSheetsData[6]
-	// mods := args.googleSheetsData[5]
 	p := 0
 	q := 1
 
@@ -184,14 +171,12 @@ func makeFile(args makeFileArgs) {
 	r := regexp.MustCompile(`"SectionKey":[0-9]{5}`)
 	sk := r.FindString(args.courseTemplate)
 	sectionKey := strings.SplitAfter(sk, ":")
-	// fmt.Printf("sectionKey=%s\n", sectionKey[1])
 
 	for j, studentID := range studentIDs {
 		// if student is in course based on matching Course from ss to course on list
 		// This is to only add students that are actually in the course we are generating a file for, and not students from other classes
 		if courses[j][0].(string) == args.course {
 			// Fill in information to studentData
-			// fmt.Printf("Courses and mods match: Course=%s and Mod=%s\n", args.course, args.mod)
 
 			// Replace Section Key
 			r := regexp.MustCompile(`[\$]SECTIONKEY[\$]`)
@@ -238,38 +223,31 @@ func makeFile(args makeFileArgs) {
 			// Replace Attendance based on return of CalcAttendance() (which is stored in attendanceVals)
 			var absentBool string = "false"
 			var presentBool string = "true"
-			if attendanceVals[args.d][0] == "Absent" {
+			if attendanceVals[j][args.d] == "Absent" {
 				absentBool = "true"
 				presentBool = "false"
 			}
+			fmt.Printf("Attendance was listed as %q for %s\n", attendanceVals[j][args.d], studentNameForSort)
+			fmt.Printf("Setting absentBool to %q \tand presentBool to %q\tfor %s.\n\n", absentBool, presentBool, args.days[args.d])
+
 			r = regexp.MustCompile(`[\$]ABSENTBOOL[\$]`)
 			studentData = r.ReplaceAllString(studentData, absentBool)
 			r = regexp.MustCompile(`[\$]PRESENTBOOL[\$]`)
 			studentData = r.ReplaceAllString(studentData, presentBool)
 
-			// fmt.Printf("allStudents: %s\nstudentData: %s\n", allStudents, studentData)
 			allStudents = append(allStudents, studentData)
 			p++
 			q++
 
-		} else {
-			// fmt.Printf("Courses are not the same!\ncourses[j][0]: %s\nargs.course: %s\n", courses[j][0], args.course)
 		}
 	}
 	// Replace $STUDENTS$ with all of the student information
 
 	allStudentsFinal := strings.Join(allStudents, ",")
-	// fmt.Printf("allStudentsFinal: %s\n", allStudentsFinal)
 	r = regexp.MustCompile(`[\$]STUDENTS[\$]`)
 	dataFinal := r.ReplaceAllString(args.courseTemplate, allStudentsFinal)
 	r = regexp.MustCompile(`[\$]DATE[\$]`)
 	dataFinal = r.ReplaceAllString(dataFinal, args.days[args.d])
-	//
-	//
-	//
-	//
-	//
-	//
 
 	var filename string = args.days[args.d] + "_" + args.course + ".txt"
 
@@ -383,7 +361,6 @@ func calcAttendance(client *http.Client, totalMins [][]interface{}) [][]string {
 				}
 			}
 		}
-		/* fmt.Printf("Number of total hours:%file\nNumber of days to mark present:%d\n", totalMin, numDaysPresent) */
 
 		// Fill in the first days of the array with present, as many days as calculated
 		for i := 0; i < numDaysPresent; i++ {
@@ -396,7 +373,7 @@ func calcAttendance(client *http.Client, totalMins [][]interface{}) [][]string {
 	}
 	// Returns a 2D array of ex:
 	// [
-	//	["Absent", "Absent", "Absent", "Absent", "Absent"], // Student 1 M T W R F
+	//	["Present", "Present", "Absent", "Absent", "Absent"], // Student 1 M T W R F
 	// ]
 	return attendance
 }
