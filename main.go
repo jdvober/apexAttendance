@@ -79,6 +79,17 @@ func main() {
 
 	attendanceSheetData := [][][]interface{}{studentIDs, attendanceVals, totalMins}
 
+	dirs := []string{"./postTemplates", "./txt"}
+	for _, d := range dirs {
+		if _, err := os.Stat(d); os.IsNotExist(err) {
+			fmt.Printf("directory %s does not exist. It will be created.\n", d)
+
+			err := os.Mkdir(d, 0777)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+	}
 	// Get filenames of each file in ./postTemplates.  Should be named mod03.json etc
 	files, err := ioutil.ReadDir("./postTemplates")
 	if err != nil {
@@ -108,7 +119,6 @@ func main() {
 			m := r.FindString(data[0])
 			mod := strings.SplitAfter(m, ":\"")
 
-			//
 			makeFile(client, d, days, data, mod, attendanceSheetData, SpreadsheetIDAttendance)
 
 			// Post to sunguard if necessary
