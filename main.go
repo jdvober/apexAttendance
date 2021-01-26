@@ -18,6 +18,15 @@ import (
 )
 
 func init() {
+	// Create log file
+	// If the file doesn't exist, create it or append to the file
+	file, err := os.OpenFile("logs.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.SetOutput(file)
+
 	// loads values from .env into the system
 	if err := godotenv.Load("config.env"); err != nil {
 		log.Println("Error loading .env")
@@ -90,7 +99,7 @@ func main() {
 	fmt.Println("Getting Last, First Middle")
 	lastCommaFirstMiddles := gsheets.GetValues(client, SpreadsheetIDRoster, "Master!U2:U")
 
-	dirs := []string{"./postTemplates", "./txt"}
+	dirs := []string{"./courseTemplates", "./txt"}
 	for _, d := range dirs {
 		if _, err := os.Stat(d); os.IsNotExist(err) {
 			fmt.Printf("directory %s does not exist. It will be created.\n", d)
@@ -101,8 +110,7 @@ func main() {
 			}
 		}
 	}
-	// Get filenames of each file in ./postTemplates.  Should be named mod03.json etc
-	files, err := ioutil.ReadDir("./postTemplates")
+
 	// Get the mod of the students
 	fmt.Println("Getting Mods")
 	mods := gsheets.GetValues(client, SpreadsheetIDRoster, "Master!F2:F")
@@ -113,8 +121,8 @@ func main() {
 
 	googleSheetsData := [][][]interface{}{studentIDs, courses, attendanceVals, totalMins, lastCommaFirstMiddles, mods, gradeLevels}
 
-	// Get filenames of each file in ./courseTemplates.  Should be named COURSEID-template.json etc
-	files, err = ioutil.ReadDir("./courseTemplates")
+	// Get filenames of each file in ./courseTemplates.  Should be named COURSEID.json etc
+  files, err := ioutil.ReadDir("./courseTemplates")
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -240,8 +248,8 @@ func makeFile(args makeFileArgs) {
 				absentBool = "true"
 				presentBool = "false"
 			}
-			fmt.Printf("Attendance was listed as %q for %s\n", attendanceVals[j][args.d], studentNameForSort)
-			fmt.Printf("Setting absentBool to %q \tand presentBool to %q\tfor %s.\n\n", absentBool, presentBool, args.days[args.d])
+			log.Printf("Attendance was listed as %q for %s\n", attendanceVals[j][args.d], studentNameForSort)
+			log.Printf("Setting absentBool to %q \tand presentBool to %q\tfor %s.\n\n", absentBool, presentBool, args.days[args.d])
 
 			r = regexp.MustCompile(`[\$]ABSENTBOOL[\$]`)
 			studentData = r.ReplaceAllString(studentData, absentBool)

@@ -16,3 +16,4 @@ config.env
 mainbackup
 /master_examples
 /postTemplates copy
+./logs.txt
