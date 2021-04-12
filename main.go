@@ -68,15 +68,19 @@ func main() {
 	}
 
 	// Get a list of all courses by CourseID
+	fmt.Println("Getting Course IDs...")
 	var allCourseIDs []string = []string{os.Getenv("COURSEID1"), os.Getenv("COURSEID2"), os.Getenv("COURSEID3"), os.Getenv("COURSEID4"), os.Getenv("COURSEID5"), os.Getenv("COURSEID6"), os.Getenv("COURSEID7"), os.Getenv("COURSEID8"), os.Getenv("COURSEID9"), os.Getenv("COURSEID10")}
 
 	// Get a list of all courses by CourseID
+	fmt.Println("Getting Courses...")
 	var allShouldPost []string = []string{os.Getenv("POST_COURSE_1"), os.Getenv("POST_COURSE_2"), os.Getenv("POST_COURSE_3"), os.Getenv("POST_COURSE_4"), os.Getenv("POST_COURSE_5"), os.Getenv("POST_COURSE_6"), os.Getenv("POST_COURSE_7"), os.Getenv("POST_COURSE_8"), os.Getenv("POST_COURSE_9"), os.Getenv("POST_COURSE_10")}
 
+	fmt.Println("Getting SSIDs...")
 	SpreadsheetIDRoster := os.Getenv("SSID_ROSTER")
 	SpreadsheetIDAttendance := os.Getenv("SSID_ATTENDANCE")
 
 	// Get Google Client for Oauth for Google Sheets
+	fmt.Println("Authorizing with Google...")
 	client := gauth.Authorize()
 
 	// Get the student IDs from the Class Roster 2.0 Spreadsheet Sunguard
